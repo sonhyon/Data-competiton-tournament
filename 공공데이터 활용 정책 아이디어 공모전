@@ -1,0 +1,40 @@
+#2단계: 사용자 화면 구현하기
+library(shiny)
+library(leaflet)
+library(leaflet.extras)
+library(dplyr)
+
+ui <- bootstrapPage( #화면 배열을 시작
+  tags$style(type = "text/css", "html, body {width:100%;height:100%}"), #사용자 화면 페이지 스타일 설정
+  leafletOutput("map", width = "100%", height = "100%"), #지도 생성
+  absolutePanel(top = 10, right = 10, #입출력 메뉴 위치 설정
+                selectInput(
+                  inputId = "choice",
+                  label = tags$span(
+                    style = "color: black;", "종류를 선택하시오"),
+                  choices = unique(ddm_ssg$상권업종대분류명),
+                  selected = unique(ddm_ssg$상권업종대분류명)[2]),
+                
+                sliderInput(
+                  inputId = "range",
+                  label = tags$span(
+                    style = "color: black;", "접근성 범위를 선택하시오"),
+                  min = 0,
+                  max = 100,
+                  value = c(60, 80),
+                  step = 10),
+                plotOutput("density", height = 230),
+                )
+)
+
+server <- function(input, output, session){
+  
+  output$map <- renderLeaflet({ #지도 출력
+    leaflet() %>%
+      addTiles() %>%
+      setView(lng = 127.0381, lat = 37.59512, zoom = 13)
+
+  })
+}
+
+shinyApp(ui, server)
