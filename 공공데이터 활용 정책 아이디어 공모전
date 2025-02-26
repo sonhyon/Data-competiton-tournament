@@ -1,9 +1,56 @@
-#2단계: 사용자 화면 구현하기
-library(shiny)
-library(leaflet)
-library(leaflet.extras)
-library(dplyr)
+#1단계: 데이터 준비
+library(sf) ; library(sp) ; library(readxl) ; library(httr) ; 
+library(RJSONIO) ; library(data.table) ; library(dplyr) ; library(shiny) ;
+library(leaflet) ; library(leaflet.extras) ; library(dplyr)
 
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+getwd()
+
+ddm_nm_bunlye_juso <- read_excel("./데이터/동대문구_장소.xlsx") #실거래 지료 불러오기
+ddm_juso <- data.frame(ddm_nm_bunlye_juso$juso) #주소가 있는 칼럼 추출
+ddm_juso <- data.frame(ddm_juso[!duplicated(ddm_juso), ]) #중복되는 주소를 제거
+
+
+
+#2단계: 지오 코딩 준비하기: 주소를 좌표로 변환
+add_list <- list()
+cnt <- 0
+kakao_key = "746249ff2fdc7ec1fc1da2c01af66e1c"
+
+for(i in 1:nrow(ddm_juso)) { #주소를 좌표료 변환하는 지오 코딩
+  tryCatch(
+    {
+      lon_lat <- GET(url = 'https://dapi.kakao.com/v2/local/search/address.json', #카카오 API에 주소로 좌푯값을 요청
+                     query = list(query = ddm_juso[i,]),
+                     add_headers(Authorization = paste0("KakaoAK ", kakao_key)))
+      coordxy <- lon_lat %>% content(as = 'text') %>% RJSONIO::fromJSON() #위경도만 추출하여 저장
+      
+      cnt = cnt + 1
+      add_list[[cnt]] <- data.table(ddm_juso = ddm_juso[i,], #API 응답(JSON)을 text로 변환하고 RJSONIO::fromJSON()을 이용해 리스트 형태로 변환
+                                    coord_x = coordxy$documents[[1]]$x, #주소, 경도, 위도 정보를 데이터 테이블로 저장 
+                                    coord_y = coordxy$documents[[1]]$y)
+      
+      message <- paste0("[", i, "/", nrow(ddm_juso), "] 번째 (", #메시지 알림
+                        round(i/nrow(ddm_juso)*100,2)," %) [", ddm_juso[i,] , "] 지오코딩 중입니다:
+                        X= ", add_list[[cnt]]$coord_x, " / Y=", add_list[[cnt]]$coord_y)
+      cat(message, "\n\n")
+    }, error = function(e){cat("ERROR :",conditionMessage(e), "\n")} #오류 발생 시 대책
+  )
+}
+
+ddm_geocoding <- rbindlist(add_list) #rbindlist()는 여러개의 리스트를 데이터프레임으로 변환
+ddm_geocoding$coord_x <- as.numeric(ddm_geocoding$coord_x) #위도를 숫자형으로 변환
+ddm_geocoding$coord_y <- as.numeric(ddm_geocoding$coord_y) #경도를 숫자형으로 변환
+ddm_geocoding <- na.omit(ddm_geocoding) #결측값 제거
+ddm_data <- cbind(ddm_nm_bunlye_juso$name ,ddm_nm_bunlye_juso$대분류, ddm_geocoding)
+colnames(ddm_data) <- c("장소이름", "대분류", "주소", "경도", "위도")
+
+coordinates(ddm_data) <- ~경도 + 위도 #coordinates() 함수는 ddm_data를 공간 객체로 변환하는 역할을 함
+proj4string(ddm_data) <- "+proj=longlat +datum=WGS84 +no_defs" #proj4string() 함수는 ddm_data의 좌표계를 설정(WGS84 좌표계로 설정)
+ddm_data <- st_as_sf(ddm_data) #sf 패키지의 공간 객체로 변환
+#──────────────────────────────────────────
+
+#사용자 화면 구현하기
 ui <- bootstrapPage( #화면 배열을 시작
   tags$style(type = "text/css", "html, body {width:100%;height:100%}"), #사용자 화면 페이지 스타일 설정
   leafletOutput("map", width = "100%", height = "100%"), #지도 생성
@@ -12,28 +59,28 @@ ui <- bootstrapPage( #화면 배열을 시작
                   inputId = "choice",
                   label = tags$span(
                     style = "color: black;", "종류를 선택하시오"),
-                  choices = unique(ddm_ssg$상권업종대분류명),
-                  selected = unique(ddm_ssg$상권업종대분류명)[2]),
-                
-                sliderInput(
-                  inputId = "range",
-                  label = tags$span(
-                    style = "color: black;", "접근성 범위를 선택하시오"),
-                  min = 0,
-                  max = 100,
-                  value = c(60, 80),
-                  step = 10),
-                plotOutput("density", height = 230),
+                  choices = unique(ddm_data$대분류),
+                  selected = unique(ddm_data$대분류)[2]),
                 )
 )
 
 server <- function(input, output, session){
   
+  brand_sel = reactive({
+    brnad_sel = subset(ddm_data,
+                       brand == input$choice
+                         )
+  })
+  plot_sel = reactive({
+    plot_sel = subset(ddm_data,
+                      brand == input$choice)
+  })
+  
   output$map <- renderLeaflet({ #지도 출력
     leaflet() %>%
       addTiles() %>%
-      setView(lng = 127.0381, lat = 37.59512, zoom = 13)
-
+      setView(lng = 127.0381, lat = 37.59512, zoom = 13) %>%
+      addCircleMarkers(data=ddm_data, label = ~장소이름)
   })
 }
 
