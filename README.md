@@ -1,6 +1,6 @@
 # Data-competiton-tournament
 
-[수정내용]
+[수정내용] + 코드 설명 필요
 
 bootstrapPage() -> fluidPage() 
 
