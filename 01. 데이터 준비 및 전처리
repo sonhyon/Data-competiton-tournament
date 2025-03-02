@@ -7,17 +7,10 @@ library(data.table) ; library(stringr)
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 getwd()
 
-ddm_fd_fs <- read_excel("./데이터/동대문구_소상공인_정리본.xlsx") #음식 패션 데이터
-head(ddm_fd_fs)
-
 ddm_hs_ct <- read_excel("./데이터/동대문구_장소.xlsx") #역사 문화 데이터
 head(ddm_hs_ct)
 
 
-
 #2단계: 데이터 전처리
-ddm_fd_fs <- ddm_fd_fs %>% #음식 패션 데이터 전처리
-  select(!contains(c("지번주소", "도로명주소"))) 
-ddm_fd_fs <- data.frame(ddm_fd_fs) 
-colnames(ddm_fd_fs) <- c("장소이름", "대분류", "경도", "위도")
-head(ddm_fd_fs)
+ddm_hs_ct_juso <- data.frame(ddm_hs_ct$juso) #주소가 있는 칼럼 추출
+ddm_hs_ct_juso <- data.frame(ddm_hs_ct_juso[!duplicated(ddm_hs_ct_juso), ]) #중복되는 주소를 제거
