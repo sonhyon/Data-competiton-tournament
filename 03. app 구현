@@ -4,7 +4,8 @@ ui <- fluidPage(
     sidebarPanel(
       selectInput("category", "유형 선택", 
                   choices = unique(ddm_data$대분류), selected = unique(ddm_data$대분류)[1]),
-      verbatimTextOutput("info")  # 선택한 장소 정보를 표시
+      selectInput("sub", "소분류 선택", choices = NULL),  # 초기에는 빈 값
+      verbatimTextOutput("info")  
     ),
     mainPanel(
       tabsetPanel(
@@ -18,9 +19,31 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
-  # 선택한 유형에 따라 데이터 필터링
+  # 대분류 선택 시 해당하는 소분류 목록 업데이트
+  observeEvent(input$category, {
+    subcategories <- ddm_data %>%
+      filter(대분류 == input$category) %>%
+      pull(소분류) %>%
+      unique()
+    
+    updateSelectInput(session, "sub", choices = subcategories, selected = NULL)  # 선택 초기화
+  })
+  
+  # 선택한 대분류 및 소분류에 따라 데이터 필터링
   filtered_data <- reactive({
-    ddm_data %>% filter(대분류 == input$category)
+    req(input$category, input$sub)  # 선택값이 없으면 실행 중단
+    
+    data <- ddm_data %>%
+      filter(대분류 == input$category, 소분류 == input$sub)
+    
+    # 데이터가 비어 있는 경우 NULL 반환 (에러 방지)
+    if (nrow(data) == 0) return(NULL)
+    
+    # 경도, 위도를 숫자로 변환 (혹시 문자형이면 오류 방지)
+    data$경도 <- as.numeric(data$경도)
+    data$위도 <- as.numeric(data$위도)
+    
+    return(data)
   })
   
   # 지도 렌더링
@@ -29,30 +52,37 @@ server <- function(input, output, session) {
       addTiles()
   })
   
-  # 유형 선택 시 지도 업데이트
+  # 선택한 대분류 및 소분류에 따라 지도 업데이트
   observe({
     data <- filtered_data()
+    
+    # 데이터가 없을 경우 처리
+    validate(
+      need(!is.null(data), "선택한 조건에 해당하는 데이터가 없습니다.")
+    )
+    
     leafletProxy("map") %>%
       clearMarkers() %>%
-      setView(lng=127.03758, lat=37.58060, zoom=13) %>%
+      setView(lng = 127.03758, lat = 37.58060, zoom = 13) %>%
       addPulseMarkers(
         lng = ~경도, lat = ~위도, label = ~장소이름, layerId = ~장소이름, 
-        data = data, icon = makePulseIcon())
+        data = data, icon = makePulseIcon()
+      )
   })
   
   # 마커 클릭 시 정보 표시
   observeEvent(input$map_marker_click, {
     click <- input$map_marker_click
-    
     data <- filtered_data()
     
-    # 클릭한 마커와 같은 장소 찾기
-    selected_place <- data %>% filter(장소이름 == click$id)
-    
-    if (nrow(selected_place) > 0) {
-      output$info <- renderText({
-        paste0("장소 이름: ", selected_place$장소이름)
-      })
+    if (!is.null(data)) {
+      selected_place <- data %>% filter(장소이름 == click$id)
+      
+      if (nrow(selected_place) > 0) {
+        output$info <- renderText({
+          paste0("장소 이름: ", selected_place$장소이름)
+        })
+      }
     }
   })
 }
