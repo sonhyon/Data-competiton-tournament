@@ -28,8 +28,8 @@ ddm_geocoding <- rbindlist(add_list) #rbindlist()는 여러개의 리스트를 �
 ddm_geocoding <- ddm_geocoding %>%  #주소 제거
   select(!contains("ddm_hs_ct_juso"))
 
-ddm_data <- cbind(ddm_hs_ct$name ,ddm_hs_ct$대분류, ddm_hs_ct$소분류, ddm_geocoding)
-colnames(ddm_data) <- c("장소이름", "대분류", "소분류", "경도", "위도")
+ddm_data <- cbind(ddm_hs_ct$name ,ddm_hs_ct$대분류, ddm_hs_ct$중분류, ddm_hs_ct$소분류, ddm_geocoding)
+colnames(ddm_data) <- c("장소이름", "대분류", "중분류", "소분류", "경도", "위도")
 head(ddm_data)
 
 #ddm_data <- rbind(ddm_data, ddm_fd_fs)
@@ -37,3 +37,7 @@ ddm_data$경도 <- as.numeric(ddm_data$경도) #위도를 숫자형으로 변환
 ddm_data$위도 <- as.numeric(ddm_data$위도) #경도를 숫자형으로 변환
 ddm_data <- na.omit(ddm_data) #결측값 제거
 head(ddm_data)
+
+#데이터 저장
+dir.create("./ddm_full_data")
+save(ddm_data, file = "./ddm_full_data/ddm_full_data.rdata")
