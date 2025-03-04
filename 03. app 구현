@@ -1,10 +1,13 @@
+load("./ddm_full_data/ddm_full_data.rdata")
+head(ddm_data)
+
 ui <- fluidPage(
   titlePanel("마커 클릭 정보 표시"),
   sidebarLayout(
     sidebarPanel(
       selectInput("category", "유형 선택", 
                   choices = unique(ddm_data$대분류), selected = unique(ddm_data$대분류)[1]),
-      selectInput("sub", "소분류 선택", choices = NULL),  # 초기에는 빈 값
+      selectInput("sub", "중분류 선택", choices = NULL),  # 초기에는 빈 값
       verbatimTextOutput("info")  
     ),
     mainPanel(
@@ -23,7 +26,7 @@ server <- function(input, output, session) {
   observeEvent(input$category, {
     subcategories <- ddm_data %>%
       filter(대분류 == input$category) %>%
-      pull(소분류) %>%
+      pull(중분류) %>%
       unique()
     
     updateSelectInput(session, "sub", choices = subcategories, selected = NULL)  # 선택 초기화
@@ -34,7 +37,7 @@ server <- function(input, output, session) {
     req(input$category, input$sub)  # 선택값이 없으면 실행 중단
     
     data <- ddm_data %>%
-      filter(대분류 == input$category, 소분류 == input$sub)
+      filter(대분류 == input$category, 중분류 == input$sub)
     
     # 데이터가 비어 있는 경우 NULL 반환 (에러 방지)
     if (nrow(data) == 0) return(NULL)
@@ -64,9 +67,14 @@ server <- function(input, output, session) {
     leafletProxy("map") %>%
       clearMarkers() %>%
       setView(lng = 127.03758, lat = 37.58060, zoom = 13) %>%
-      addPulseMarkers(
-        lng = ~경도, lat = ~위도, label = ~장소이름, layerId = ~장소이름, 
-        data = data, icon = makePulseIcon()
+      addCircleMarkers(
+        lng = ~경도, lat = ~위도, label = ~장소이름, layerId = ~장소이름,
+        data = data, color = "green", radius = 11, fillOpacity = 0.7
+      ) %>%
+      addLabelOnlyMarkers(
+        lng = ~경도, lat = ~위도, label = ~소분류, data = data,
+        labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE, 
+                                    style = list("color" = "white", "font-weight" = "bold", "font-size" = "14px"))
       )
   })
   
