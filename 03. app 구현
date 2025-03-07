@@ -1,14 +1,45 @@
+library(sf) ; library(sp) ; library(readxl) ; library(httr) ; 
+library(RJSONIO) ; library(data.table) ; library(dplyr) ; library(shiny) ;
+library(leaflet) ; library(leaflet.extras) ; library(dplyr); library(XML) ;
+library(data.table) ; library(stringr)
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+getwd()
+
 load("./ddm_full_data/ddm_full_data.rdata")
 head(ddm_data)
 
 ui <- fluidPage(
-  titlePanel("마커 클릭 정보 표시"),
+  tags$head(
+    tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Montserrat:wght@500&display=swap"),
+    tags$style(HTML("
+      #title {
+        font-family: 'Montserrat', sans-serif; 
+        font-size: 28px; 
+        font-weight: bold;
+        color: #2c3e50;
+      }
+    "))
+  ),
+  
+  titlePanel(
+    div("관광 정보", id = "title")  # id를 지정하여 스타일 적용
+  ),
+  
   sidebarLayout(
     sidebarPanel(
       selectInput("category", "유형 선택", 
                   choices = unique(ddm_data$대분류), selected = unique(ddm_data$대분류)[1]),
-      selectInput("sub", "중분류 선택", choices = NULL),  # 초기에는 빈 값
-      verbatimTextOutput("info")  
+      selectInput("sub", "여행 경로", choices = NULL),  # 초기에는 빈 값
+      verbatimTextOutput("info"),  # 장소 이름 출력
+      
+      # 네모 상자 추가
+      div(
+        style = "border: 2px solid #ddd; padding: 10px; background-color: #f9f9f9; 
+                 border-radius: 5px; margin-top: 10px; width: 100%; min-height: 80px; 
+                 display: flex; align-items: center; justify-content: center; font-size: 16px;",
+        "여기에 추가 정보 입력 가능"
+      )
     ),
     mainPanel(
       tabsetPanel(
@@ -19,6 +50,7 @@ ui <- fluidPage(
     )
   )
 )
+
 
 server <- function(input, output, session) {
   
